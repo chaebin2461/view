@@ -11,7 +11,14 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // 환경 변수 안전하게 가져오기
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } catch (e) {
+            console.error("Firebase 설정이 없습니다. 로컬 테스트 모드로 전환합니다.");
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -27,6 +34,7 @@
         const chatBox = document.getElementById('chat-box');
         const userMsgInput = document.getElementById('user-msg');
         const emailError = document.getElementById('email-error');
+        const loginBtn = document.getElementById('login-btn');
 
         const initAuth = async () => {
             try {
@@ -35,7 +43,9 @@
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (err) { console.error("Auth Error:", err); }
+            } catch (err) { 
+                console.error("인증 오류:", err);
+            }
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -65,24 +75,38 @@
                 emailError.classList.add('hidden');
             }
 
+            // 버튼 비활성화 (중복 클릭 방지)
+            loginBtn.disabled = true;
+            loginBtn.innerText = "접속 중...";
+
             userData = { name, phone, email, carrier };
             localStorage.setItem('eundi_user', JSON.stringify(userData));
 
             try {
-                await sendToWebhook(userData);
-                if (!auth.currentUser) await initAuth();
+                // 1. 웹훅 전송 (실패해도 다음 단계로 넘어가도록 처리)
+                await sendToWebhook(userData).catch(e => console.warn("웹훅 실패:", e));
 
+                // 2. 익명 인증 보장
+                if (!auth.currentUser) {
+                    await initAuth();
+                }
+
+                // 3. 입국 메시지 기록
                 if (auth.currentUser) {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
                         text: `${name}님이 응디시티에 입국했습니다.`,
                         sender: "시스템",
                         timestamp: serverTimestamp()
                     });
-                    showChat();
                 }
+                
+                showChat();
             } catch (error) {
                 console.error("Login Error:", error);
-                alert("접속 중 오류 발생");
+                alert("접속 실패: Firebase 설정 또는 네트워크를 확인하세요.");
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerText = "접속하기";
             }
         };
 
@@ -106,7 +130,11 @@
                     ]
                 }]
             };
-            try { await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); } catch(e) {}
+            return fetch(WEBHOOK_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            });
         }
 
         let unsubscribeMessages = null;
@@ -133,7 +161,9 @@
                     chatBox.appendChild(wrapper);
                 });
                 chatBox.scrollTop = chatBox.scrollHeight;
-            }, (err) => console.error(err));
+            }, (err) => {
+                console.error("Firestore Error:", err);
+            });
         }
 
         window.sendMsg = async () => {
@@ -157,13 +187,12 @@
         .mc-profile { filter: grayscale(10%) contrast(1.1); }
         #chat-box::-webkit-scrollbar { width: 4px; }
         #chat-box::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <!-- 이 컨테이너가 PC/모바일 모두 정중앙에 위치하게 합니다 -->
     <div class="fixed inset-0 flex items-center justify-center p-4 overflow-hidden">
-        
         <!-- 로그인 섹션 -->
         <div id="login-section" class="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl border border-gray-100">
             <div class="flex flex-col items-center mb-8">
@@ -192,7 +221,7 @@
                     <p id="email-error" class="hidden text-[10px] text-red-500 mt-1 ml-2 font-bold">@gmail.com을 입력하세요.</p>
                 </div>
                 
-                <button onclick="window.startLogin()" class="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl text-lg mt-2 transition-all active:scale-95 shadow-lg">
+                <button id="login-btn" onclick="window.startLogin()" class="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl text-lg mt-2 transition-all active:scale-95 shadow-lg">
                     접속하기
                 </button>
             </div>
